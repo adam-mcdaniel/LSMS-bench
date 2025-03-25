@@ -277,7 +277,7 @@ void buildGijCudaKernel(Real *LIZPos, int *LIZlmax, int *lofk, int *mofk, cuDoub
     Real *testSinmp = (Real *) (testSM + sinmpOffset);
     Real *testCosmp = (Real *) (testSM + cosmpOffset);
     Real *testPlm = (Real *) (testSM + plmOffset);
-    cuDoubleComplex *testDlm = (cuDoubleComplex *) (testSM + dlmOffset);
+    // cuDoubleComplex *testDlm = (cuDoubleComplex *) (testSM + dlmOffset);
 #endif
 
     Real r = std::sqrt(rij[0]*rij[0] + rij[1]*rij[1] + rij[2]*rij[2]);
@@ -619,7 +619,7 @@ void buildKKRMatrixLMaxIdenticalCuda(LSMSSystemParameters &lsms, LocalTypeInfo &
   Real testCosmp[2*lsms.maxlmax + 1];
   // Real plm[((lsms.maxlmax+1) * (lsms.maxlmax+2)) / 2];
   Real testPlm[AngularMomentumIndices::ndlm];
-  Complex testDlm[AngularMomentumIndices::ndlj];
+  // Complex testDlm[AngularMomentumIndices::ndlj];
   cudaMemcpy(testHfn, devTestSM + hfnOffset, (2*lsms.maxlmax + 1)*sizeof(Complex), cudaMemcpyDeviceToHost);
   cudaMemcpy(testSinmp, devTestSM + sinmpOffset, (2*lsms.maxlmax + 1)*sizeof(Real), cudaMemcpyDeviceToHost);
   cudaMemcpy(testCosmp, devTestSM + cosmpOffset, (2*lsms.maxlmax + 1)*sizeof(Real), cudaMemcpyDeviceToHost);
