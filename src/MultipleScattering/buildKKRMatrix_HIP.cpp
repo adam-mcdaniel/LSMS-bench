@@ -1012,7 +1012,7 @@ void buildKKRMatrixLMaxDifferentHip(LSMSSystemParameters &lsms,
       d.getTmatStoreLDim(), (deviceDoubleComplex *)d.getDevTmatStore(),
       nrmat_ns, (deviceDoubleComplex *)devBgij, (deviceDoubleComplex *)devM);
   } else {
-    buildKKRMatrixMultiplyKernelHip<<<blocks, threads>>>(
+    buildKKRMatrixMultiplyKernelHip_collinear<<<blocks, threads>>>(
       devAtom.LIZlmax, devAtom.LIZStoreIdx, devOffsets, kkrsz_ns, ispin,
       iie, d.getBlkSizeTmatStore(),
       d.getTmatStoreLDim(), (deviceDoubleComplex *)d.getDevTmatStore(),
