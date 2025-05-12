@@ -565,6 +565,53 @@ __global__ void buildKKRMatrixMultiplyKernelHip(
   }
 }
 
+__global__ void buildKKRMatrixMultiplyKernelHip_collinear(
+    int *LIZlmax, int *LIZStoreIdx, int *offsets, int kkrsz, int ispin,
+    int iie, int blkSizeTmatStore,
+    int tmatStoreLDim, deviceDoubleComplex *devTmatStore, int nrmat_ns,
+    deviceDoubleComplex *devBgij, deviceDoubleComplex *devM) {
+  int ir1 = hipBlockIdx_x;
+  int ir2 = hipBlockIdx_y;
+  // HIP_DYNAMIC_SHARED(deviceDoubleComplex, tmat_n);
+  deviceDoubleComplex *tmat_n;
+  int iOffset = offsets[ir1];
+  int jOffset = offsets[ir2];
+  int spinOffset = kkrsz * kkrsz * ispin;
+
+  if (ir1 != ir2) {
+    int lmax1 = LIZlmax[ir1];
+    int lmax2 = LIZlmax[ir2];
+    int kkr1 = (lmax1 + 1) * (lmax1 + 1);
+    int kkr2 = (lmax2 + 1) * (lmax2 + 1);
+    int kkr1_ns = kkr1;
+    int kkr2_ns = kkr2;
+
+    tmat_n = &devTmatStore[IDX(iie * blkSizeTmatStore + spinOffset, LIZStoreIdx[ir1],
+                               tmatStoreLDim)];
+
+    for (int ij = hipThreadIdx_x; ij < kkr1_ns * kkr2_ns; ij += hipBlockDim_x) {
+      int i = ij % kkr1_ns;
+      int j = ij / kkr1_ns;
+
+      auto devMValue = make_hipDoubleComplex(0.0, 0.0);
+      int devBgijIdx0 = IDX(iOffset, jOffset + j, nrmat_ns);
+      int tmat_nIdx = IDX(i, 0, kkr1_ns);
+      for (int k = 0; k < kkr1_ns; k++) {
+        // devM[IDX(iOffset + i, jOffset + j, nrmat_ns)] = devM[IDX(iOffset + i,
+        // jOffset + j, nrmat_ns)] -
+        devMValue = devMValue -
+		hipCmul (tmat_n[tmat_nIdx], devBgij[k + devBgijIdx0]);
+                    /* // tmat_n[IDX(i,k,kkr1_ns)] *
+                    tmat_n[tmat_nIdx] *
+                        // devBgij[IDX(iOffset + k, jOffset + j, nrmat_ns)];
+                    devBgij[k + devBgijIdx0]; */
+        tmat_nIdx += kkr1_ns;
+      }
+      devM[IDX(iOffset + i, jOffset + j, nrmat_ns)] = devMValue;
+    }
+  }
+}
+
 void buildKKRMatrixLMaxIdenticalHip(LSMSSystemParameters &lsms,
                                     LocalTypeInfo &local, AtomData &atom,
                                     DeviceStorage &d, DeviceAtom &devAtom,
@@ -805,11 +852,21 @@ void buildKKRMatrixLMaxIdenticalHip(LSMSSystemParameters &lsms,
   // note that the shared memory requiremets of the present implementation is
   // too large for lmax>3 buildKKRMatrixMultiplyKernelCuda<<<blocks, threads,
   // smSize>>>(devAtom.LIZlmax, devAtom.LIZStoreIdx, devOffsets,
-  buildKKRMatrixMultiplyKernelHip<<<blocks, threads>>>(
+  if (lsms.n_spin_pola ==
+      lsms.n_spin_cant)  // non polarized or spin canted
+  {
+    buildKKRMatrixMultiplyKernelHip<<<blocks, threads>>>(
       devAtom.LIZlmax, devAtom.LIZStoreIdx, devOffsets, kkrsz_ns, ispin,
       lsms.n_spin_pola, lsms.n_spin_cant, iie, d.getBlkSizeTmatStore(),
       d.getTmatStoreLDim(), (deviceDoubleComplex *)d.getDevTmatStore(),
       nrmat_ns, (deviceDoubleComplex *)devBgij, (deviceDoubleComplex *)devM);
+  } else {
+    buildKKRMatrixMultiplyKernelHip_collinear<<<blocks, threads>>>(
+      devAtom.LIZlmax, devAtom.LIZStoreIdx, devOffsets, kkrsz_ns, ispin,
+      iie, d.getBlkSizeTmatStore(),
+      d.getTmatStoreLDim(), (deviceDoubleComplex *)d.getDevTmatStore(),
+      nrmat_ns, (deviceDoubleComplex *)devBgij, (deviceDoubleComplex *)devM);
+  }
   /*
   // loop over the LIZ blocks
   for(int ir1 = 0; ir1 < devAtom.numLIZ; ir1++)
@@ -946,11 +1003,21 @@ void buildKKRMatrixLMaxDifferentHip(LSMSSystemParameters &lsms,
   // note that the shared memory requiremets of the present implementation is
   // too large for lmax>3 buildKKRMatrixMultiplyKernelCuda<<<blocks, threads,
   // smSize>>>(devAtom.LIZlmax, devAtom.LIZStoreIdx, devOffsets,
-  buildKKRMatrixMultiplyKernelHip<<<blocks, threads>>>(
+  if (lsms.n_spin_pola ==
+            lsms.n_spin_cant)  // non polarized or spin canted
+  {
+    buildKKRMatrixMultiplyKernelHip<<<blocks, threads>>>(
       devAtom.LIZlmax, devAtom.LIZStoreIdx, devOffsets, kkrsz_ns, ispin,
       lsms.n_spin_pola, lsms.n_spin_cant, iie, d.getBlkSizeTmatStore(),
       d.getTmatStoreLDim(), (deviceDoubleComplex *)d.getDevTmatStore(),
       nrmat_ns, (deviceDoubleComplex *)devBgij, (deviceDoubleComplex *)devM);
+  } else {
+    buildKKRMatrixMultiplyKernelHip<<<blocks, threads>>>(
+      devAtom.LIZlmax, devAtom.LIZStoreIdx, devOffsets, kkrsz_ns, ispin,
+      iie, d.getBlkSizeTmatStore(),
+      d.getTmatStoreLDim(), (deviceDoubleComplex *)d.getDevTmatStore(),
+      nrmat_ns, (deviceDoubleComplex *)devBgij, (deviceDoubleComplex *)devM);
+  }
   /*
   // loop over the LIZ blocks
   for(int ir1 = 0; ir1 < devAtom.numLIZ; ir1++)
