@@ -1,6 +1,22 @@
 # LSMS
 LSMS is a code for scalable first principles calculations of materials using multiple scattering theory.
 
+# Run On Frontier
+
+## Compile
+
+```bash
+git clone https://github.com/adam-mcdaniel/LSMS-bench
+cd LSMS-bench
+./compile.sh
+```
+
+## Run
+
+```bash
+./run.sh
+```
+
 ## Citing LSMS
 If you publish results obtained using LSMS we ask that you cite the following publications:
 
